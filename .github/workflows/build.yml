@@ -1,0 +1,43 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - name: Regression (only when private test data is present)
+        run: |
+          if [ -f "tests/data/[임원회의용] 연구본부 주간업무보고(YYMMDD) 양식.hwpx" ]; then npm test; else echo "no test data — skipped"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      # GitHub Pages: the single-file app becomes https://<user>.github.io/<repo>/
+      - name: Prepare Pages site
+        run: mkdir -p site && cp dist/weekly-report-converter.html site/index.html && cp dist/weekly-report-converter-extension.zip site/
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: "${{ steps.deployment.outputs.page_url }}" }
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

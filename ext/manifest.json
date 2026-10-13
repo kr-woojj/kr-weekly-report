@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "주간보고 변환기 (임원회의용 한글 변환)",
+  "short_name": "주간보고 변환기",
+  "version": "1.1.0",
+  "description": "연구본부 주간업무보고 취합본(docx)의 빨간색 내용을 임원회의용 양식(hwpx)으로 변환합니다. 인터넷 전송 없이 PC 안에서만 처리합니다.",
+  "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" },
+  "action": { "default_title": "주간보고 변환기 열기" },
+  "background": { "service_worker": "background.js" },
+  "offline_enabled": true
+}

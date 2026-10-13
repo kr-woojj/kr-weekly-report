@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>주간보고 변환기</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>임원회의용 주간업무보고 변환</h1>
+    <div class="sub">취합본(docx)의 <b class="red">빨간색</b> 내용만 임원회의용 양식(hwpx)에 옮기고, 확인할 것을 알려 줍니다. 파일은 PC 밖으로 나가지 않습니다.</div>
+  </header>
+
+  <section class="card" id="step1">
+    <h2><span class="n">1</span> 주간업무보고 폴더 지정</h2>
+    <div class="row">
+      <button id="btnFolder" class="primary">폴더 선택…</button>
+      <button id="btnRecent" class="ghost" hidden>최근 폴더 다시 열기</button>
+      <span id="folderName" class="muted">아직 선택하지 않음</span>
+    </div>
+    <div id="noFsa" class="note" hidden>이 환경에서는 폴더 지정을 쓸 수 없어 <b>파일 선택 방식</b>으로 동작합니다. 결과는 다운로드 폴더로 내려받습니다.</div>
+    <div class="grid2" id="pickers">
+      <label>취합본 docx
+        <select id="selDocx"></select>
+        <input type="file" id="fileDocx" accept=".docx" hidden>
+      </label>
+      <label>임원용 양식 hwpx
+        <select id="selTpl"></select>
+        <input type="file" id="fileTpl" accept=".hwpx" hidden>
+      </label>
+    </div>
+    <div id="dropZone" class="drop" hidden>여기에 취합본(docx)과 양식(hwpx)을 끌어다 놓아도 됩니다</div>
+    <div id="peek" class="muted"></div>
+  </section>
+
+  <section class="card" id="step2">
+    <h2><span class="n">2</span> 보고일·옵션 확인</h2>
+    <div class="row">
+      <label class="inline">보고일(임원회의) <input id="reportDate" type="date"></label>
+      <label class="inline"><input type="checkbox" id="optRenumber" checked> 항목 번호 1부터 재부여</label>
+      <label class="inline"><input type="checkbox" id="optTables" checked> 빨간색 표 포함</label>
+    </div>
+    <div class="row">
+      <button id="btnConvert" class="primary big" disabled>변  환</button>
+      <span id="status" class="muted"></span>
+    </div>
+  </section>
+
+  <section class="card" id="step3" hidden>
+    <h2><span class="n">3</span> 결과</h2>
+    <div id="resultBox"></div>
+    <div class="row">
+      <button id="btnReport" class="ghost" hidden>결과 보고서 열기</button>
+      <button id="btnDownload" class="ghost" hidden>hwpx 다운로드</button>
+      <button id="btnDownloadReport" class="ghost" hidden>보고서 다운로드</button>
+    </div>
+    <div class="note">항상: 생성된 hwpx를 <b>한글에서 열어 쪽 수·표 셀 넘침·줄 끝 어절 분리</b>를 확인한 뒤 기획조정팀에 송부.</div>
+    <h3>확인할 것 <span id="chkCount" class="muted"></span></h3>
+    <table id="checks" class="checks"><thead><tr><th>구분</th><th>위치</th><th>원문</th><th>내용</th></tr></thead><tbody></tbody></table>
+  </section>
+
+  <footer class="muted">주간보고 변환기 v1.1 (Chrome) · 설정: <span id="settingsSrc">내장</span> · 막히면 <code>_로그</code> 폴더의 최신 파일과 취합본을 담당자에게 보내 주세요.</footer>
+</main>
+<script src="vendor/jszip.min.js"></script>
+<script src="engine/util.js"></script>
+<script src="engine/extract_docx.js"></script>
+<script src="engine/date_facts.js"></script>
+<script src="engine/hwpx_tools.js"></script>
+<script src="engine/rules_review.js"></script>
+<script src="engine/report_html.js"></script>
+<script src="engine/convert.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
