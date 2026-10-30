@@ -89,6 +89,8 @@
     // 8. 쪽 넘침
     for (const x of fill.items_split_across_pages || [])
       C.push({ level: '참고', where: x.slot, para_id: '', red: true, text: x.item.trim().slice(0, 60), what: `항목 하나가 약 ${x.lines}행으로 한 쪽(30행) 이상 — 한글에서 셀 넘침 확인.` });
+    for (const k of fill.first_page_moved || [])
+      C.push({ level: '참고', where: k, para_id: '', red: true, text: '', what: '첫 쪽이 앞 내용(수입실적·연구본부 항목)으로 차서 부서 배너·분류 제목째 다음 쪽으로 넘김. 한글에서 첫 쪽 여백 확인.' });
     for (const k of Object.keys(fill.pages_added || {}))
       C.push({ level: '참고', where: k, para_id: '', red: true, text: '', what: `분량이 많아 ${fill.pages_added[k]}쪽 추가(표 복제). 한글에서 쪽 나뉨 확인.` });
     // 9. 빨간색 없는 부서

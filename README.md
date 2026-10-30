@@ -12,7 +12,7 @@ Turns a collected weekly work report (Word `.docx`) into an executive-meeting re
 
 ### What it does
 - Reads the docx (`word/document.xml`), classifies paragraphs by section (this week / next week / monthly plan / income), department, category and level (1./ㅇ/-), and keeps the red ones (run color R≥C0, G≤40, B≤40).
-- Fills the hwpx template: cover date, period ranges, income figures, monthly-plan slot, and each department/category box; renumbers items from 1, inserts a blank line between items, converts red nested tables into real hwpx tables, and **paginates by cloning the page table** when a box overflows (never splits an item).
+- Fills the hwpx template: cover date, period ranges, income figures, monthly-plan slot, and each department/category box; renumbers items from 1, inserts a blank line between items, converts red nested tables into real hwpx tables, and **paginates by cloning the page table** when a box overflows — including the monthly-plan page — never splitting an item.
 - Resolves paragraph/character styles from `header.xml` by their properties (font size, ratio, spacing, indent), so the template may be re-saved in Hangul without breaking.
 - Re-parses the generated file and refuses to export unless the text round-trips exactly and the styles are uniform.
 - Produces a rule-based checklist (date/weekday mismatch, inverted ranges, future dates written as completed, holidays, duplicate numbers, unbalanced brackets, long gaps, red body under a black title, departments with no box in the template, overflow) and an HTML report.

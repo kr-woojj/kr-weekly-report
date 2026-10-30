@@ -310,6 +310,58 @@
       });
       return [insertAt, n];
     }
+    /** 월간 쪽 넘김(v1.2): 월간 2x2 표의 우측 셀이 한 쪽을 넘으면 같은 표를 복제해
+        부서 배너·항목(L1) 경계에서 다음 쪽으로 넘긴다. 배너는 바로 뒤 첫 항목과 함께 옮긴다. */
+    function paginateMonthly(slot) {
+      const sub = slot.sub;
+      const cap = Math.round(parseInt(hp1(slot.cell, 'cellSz').getAttribute('height'), 10) / HW.LINE_PITCH);
+      let kids = U.children(sub);
+      // 끝의 빈 문단은 분량 계산에서 뺌(넘길 때만 제거)
+      let tail = kids.length;
+      while (tail > 0 && kids[tail - 1].localName === 'p' && !ptext(kids[tail - 1]).trim() && !allTbl(kids[tail - 1]).length) tail--;
+      const tailBlanks = kids.slice(tail); kids = kids.slice(0, tail);
+      const isBannerP = p => allTbl(p).some(b => b.getAttribute('rowCnt') === '1' && b.getAttribute('colCnt') === '1');
+      const isL1 = p => p.getAttribute('paraPrIDRef') === styles[1][0] && ptext(p).trim() !== '';
+      const linesOf = p => {
+        const inner = allTbl(p);
+        if (inner.length) return inner.reduce((a, t) => a + (isBannerTbl(t) ? 2 : Math.ceil(parseInt(t.getAttribute('rowCnt'), 10) * 0.67) + 1), 0);
+        return ptext(p).trim() ? est_lines(ptext(p)) : 1;
+      };
+      const blocks = []; let cur = [];
+      for (const p of kids) {
+        if ((isBannerP(p) || isL1(p)) && cur.length) { blocks.push(cur); cur = []; }
+        cur.push(p);
+      }
+      if (cur.length) blocks.push(cur);
+      const merged = [];
+      for (const b of blocks) {
+        const last = merged[merged.length - 1];
+        if (last && isBannerP(last[last.length - 1]) && last.length <= 2) last.push(...b); else merged.push(b);
+      }
+      const total = merged.reduce((a, b) => a + b.reduce((x, p) => x + linesOf(p), 0), 0);
+      if (total <= cap) return;
+      for (const p of tailBlanks) sub.removeChild(p);
+      const pages = [[]]; let used = 0;
+      for (const b of merged) {
+        const need = b.reduce((x, p) => x + linesOf(p), 0);
+        if (pages[pages.length - 1].length && used + need > cap) { pages.push([]); used = 0; }
+        if (!pages[pages.length - 1].length && need > cap)
+          log.items_split_across_pages.push({ slot: '월간계획', item: ptext(b.find(p => ptext(p).trim()) || b[0]).trim().slice(0, 30), lines: need });
+        pages[pages.length - 1].push(b); used += need;
+      }
+      let prev = slot.tbl;
+      for (const pg of pages.slice(1)) {
+        max_tbl_id += 1;
+        const [ntbl, nsub] = cloneTableForContinuation(slot, max_tbl_id);
+        for (const b of pg) for (const p of b) { sub.removeChild(p); nsub.appendChild(p); }
+        // 이어지는 쪽 맨 앞의 빈 문단 제거
+        let nk = U.children(nsub);
+        while (nk.length && nk[0].localName === 'p' && !ptext(nk[0]).trim() && !allTbl(nk[0]).length) { nsub.removeChild(nk[0]); nk = U.children(nsub); }
+        U.insertAfter(prev, ntbl); prev = ntbl;
+      }
+      log.pages_added['월간계획'] = pages.length - 1;
+      log.page_lines['월간계획'] = pages.map(pg => pg.reduce((a, b) => a + b.reduce((x, p) => x + linesOf(p), 0), 0));
+    }
     const matched = new Set();
     const slots = HW.iter_slots(root);
     // 2b. 본부 칸: key가 (구역, 본부배너, 본부)인 그룹은 그 구역 첫 쪽의 본부 배너 바로 아래에 넣는다(실적·계획)
@@ -346,7 +398,10 @@
       const cap_first = cellCapacityLines(slot);
       const cap_full = Math.round(parseInt(hp1(slot.cell, 'cellSz').getAttribute('height'), 10) / HW.LINE_PITCH);
       const grps = buildGroups(its);
-      const pages = [[]], used = [0]; let cap = cap_first;
+      // 첫 쪽이 앞 내용(수입실적·연구본부 항목 등)으로 이미 차서 첫 항목도 못 들어가면,
+      // 부서 배너·분류 제목째 새 쪽(표 복제)으로 넘긴다(v1.2).
+      const moveFirst = !!(opts.paginate && grps.length && grps[0].nlines > cap_first && cap_first < cap_full - 4);
+      const pages = [[]], used = [0]; let cap = moveFirst ? cap_full - 3 : cap_first;
       for (const g of grps) {
         let need = g.nlines + (pages[pages.length - 1].length && opts.blank_between_items ? 1 : 0);
         if (opts.paginate && pages[pages.length - 1].length && used[used.length - 1] + need > cap) { pages.push([]); used.push(0); cap = cap_full; need = g.nlines; }
@@ -356,16 +411,30 @@
       }
       const slotName = `${sec}/${slot.dept}/${slot.category}`;
       log.page_lines[slotName] = used;
-      let insertAt = U.indexOf(sub, heading) + 1;
-      let n; [insertAt, n] = emit(sub, insertAt, pages[0]); log.filled += n;
-      let prev = slot.tbl;
+      let prev = slot.tbl, target = sub;
+      if (moveFirst) {
+        max_tbl_id += 1;
+        const [ntbl, nsub] = cloneTableForContinuation(slot, max_tbl_id);
+        const ps = hp(sub, 'p'); const hi = ps.indexOf(heading); let bp = null;
+        for (let i = hi - 1; i >= 0; i--) {
+          if (allTbl(ps[i]).some(isBannerTbl)) { bp = ps[i]; break; }
+          if (ptext(ps[i]).trim()) break;
+        }
+        if (bp && HW.norm_key(bannerText(allTbl(bp).find(isBannerTbl))) === HW.norm_key(slot.dept)) { sub.removeChild(bp); nsub.appendChild(bp); }
+        sub.removeChild(heading); nsub.appendChild(heading);
+        U.insertAfter(prev, ntbl); prev = ntbl; target = nsub;
+        log.pages_added[slotName] = (log.pages_added[slotName] || 0) + 1;
+        log.first_page_moved = (log.first_page_moved || []).concat([slotName]);
+      }
+      let insertAt = U.indexOf(target, heading) + 1;
+      let n; [insertAt, n] = emit(target, insertAt, pages[0]); log.filled += n;
       for (const pg of pages.slice(1)) {
         max_tbl_id += 1;
         const [ntbl, nsub] = cloneTableForContinuation(slot, max_tbl_id);
         U.insertAfter(prev, ntbl); prev = ntbl;
         [, n] = emit(nsub, 0, pg); log.filled += n;
       }
-      if (pages.length > 1) log.pages_added[slotName] = pages.length - 1;
+      if (pages.length > 1) log.pages_added[slotName] = (log.pages_added[slotName] || 0) + pages.length - 1;
       log.slots_filled[slotName] = its.length;
     }
     // 3b. 월간 계획 칸
@@ -388,6 +457,7 @@
         const [, n] = emit(sub, U.indexOf(sub, bp) + 1, grps);
         log.filled += n; log.slots_filled[`월간계획/${dept}`] = its.length;
       }
+      if (opts.paginate) paginateMonthly(slot);
     }
     for (const [key, its] of groups) if (!matched.has(key)) {
       log.unmatched.push({ section: key.split('/')[0], dept: its[0].dept, category: its[0].category, count: its.length, para_ids: its.map(i => i.para_id) });
@@ -426,9 +496,11 @@
       const ppr = p.getAttribute('paraPrIDRef'); const cps = Array.from(new Set(hp(p, 'run').map(r => r.getAttribute('charPrIDRef')))).sort();
       if (cps.length !== 1 || pairToLevel[ppr + '|' + cps[0]] === undefined) violations.push(Object.assign({ text: t.slice(0, 30), paraPrIDRef: ppr, charPrIDRef: cps }, where));
     };
+    let monthDept = null;
     for (const slot of HW.iter_slots(root)) {
+      if (slot.section !== '월간') monthDept = null;
       if (slot.section === '월간') {
-        let dept = null;
+        let dept = monthDept;
         for (const p of hp(slot.sub, 'p')) {
           const bs = allTbl(p).filter(isBanner);
           if (bs.length) { dept = U.descendants(bs[0], HP, 'p').map(ptext).join('').trim(); continue; }
@@ -437,24 +509,30 @@
           const t = ptext(p);
           if (dept && t.trim() && !t.includes('주요월간계획')) { push(K(['월간계획', HW.norm_key(dept), HW.norm_key('월간계획')]), t); styleCheck(p, t, { slot: ['월간계획', dept] }); }
         }
+        monthDept = dept;
         continue;
       }
-      if (slot.key === null || slot.sec === null) continue;
+      if (slot.sec === null) continue;
       const paras = hp(slot.sub, 'p');
-      const after = slot.heading !== null ? paras.slice(paras.indexOf(slot.heading) + 1) : paras;
-      const key = K(slot.key); if (!got.has(key)) got.set(key, []);
-      let n_lines = 0;
-      // 본부 배너 아래(제목 앞) 문단
-      if (slot.heading !== null) {
+      // 본부 배너 아래(분류 제목 앞, 제목이 없는 표는 전체) 문단
+      let hqLines = 0;
+      {
         let inHq = false; const hqKey = K([slot.sec, HW.norm_key(HW.HQ.banner), HW.norm_key(HW.HQ.category)]);
-        for (const p of paras.slice(0, paras.indexOf(slot.heading))) {
+        const pre = slot.heading !== null ? paras.slice(0, paras.indexOf(slot.heading)) : (slot.key === null ? paras : []);
+        for (const p of pre) {
           const bs = allTbl(p).filter(isBanner);
           if (bs.length) { inHq = HW.norm_key(bannerText(bs[0])) === HW.norm_key(HW.HQ.banner); continue; }
-          if (!inHq || allTbl(p).length) continue;
-          const t = ptext(p); if (!t.trim()) { n_lines += 1; continue; }
-          push(hqKey, t); n_lines += est_lines(t); styleCheck(p, t, { slot: [slot.sec, HW.HQ.banner] });
+          if (!inHq) continue;
+          const innerT = allTbl(p).filter(tb => !isBanner(tb));
+          if (innerT.length) { for (const tb of innerT) { const tr = tableRows(tb); push(hqKey, ['table', tr]); hqLines += Math.ceil(tr.length * 0.67) + 1; } continue; }
+          const t = ptext(p); if (!t.trim()) { hqLines += 1; continue; }
+          push(hqKey, t); hqLines += est_lines(t); styleCheck(p, t, { slot: [slot.sec, HW.HQ.banner] });
         }
+        if (slot.key === null) { if (hqLines) (page_lines[hqKey] = page_lines[hqKey] || []).push(hqLines); continue; }
       }
+      const after = slot.heading !== null ? paras.slice(paras.indexOf(slot.heading) + 1) : paras;
+      const key = K(slot.key); if (!got.has(key)) got.set(key, []);
+      let n_lines = hqLines;
       after.forEach((p, i) => {
         const inner = allTbl(p).filter(tb => !isBanner(tb));
         if (inner.length) { for (const tb of inner) { const tr = tableRows(tb); push(key, ['table', tr]); n_lines += Math.ceil(tr.length * 0.67) + 1; } return; }

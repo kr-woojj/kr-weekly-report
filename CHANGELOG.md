@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0 — 2026-10-30
+- Monthly-plan page now paginates: when the monthly box overflows (~30 lines), the page table is cloned and content continues on the next page, split at department-banner / item boundaries (a banner always moves together with its first item). Items longer than one page are reported.
+- First-page overflow: when the first page of a section is already filled by the income table and division-banner items, the department banner and category heading move to a new page together with their items instead of overflowing page 1.
+- Verification now checks red nested tables placed under the division banner and division-banner content on pages without a category heading.
+
 ## 1.1.0 — 2026-10-13
 - Reorganization support: new departments/categories are read from the documents (no code change).
 - Items whose department has no box in the template now go under the `연구본부` banner on the first page of each section (`본부_칸` setting), numbered from 1, and are counted in page capacity.

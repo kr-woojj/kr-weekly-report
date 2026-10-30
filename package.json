@@ -1,6 +1,6 @@
 {
   "name": "kr-weekly-report",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Chrome extension / single-file web app that extracts red-highlighted items from a collected weekly report (docx) into an executive-meeting Hangul (hwpx) template — entirely in the browser.",
   "license": "MIT",
   "private": true,
